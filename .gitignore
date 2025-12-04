@@ -45,3 +45,9 @@ next-env.d.ts
 # Uploaded documents
 public/uploads/*
 !public/uploads/.gitkeep
+
+# Personal documentation files (not for GitHub)
+SUBMISSION_*.md
+PART3_*.md
+CHANGES.md
+Progress Report.pdf
