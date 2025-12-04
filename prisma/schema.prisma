@@ -1,0 +1,196 @@
+// PRISMA SCHEMA - Job Application Tracker
+// This defines our database structure and generates TypeScript types
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ============================================================================
+// ENUMS 
+// ============================================================================
+
+enum LocationType {
+  REMOTE
+  HYBRID
+  ONSITE
+}
+
+enum ApplicationStatus {
+  INTERESTED
+  APPLIED
+  ONLINE_ASSESSMENT
+  PHONE_SCREEN
+  ONSITE
+  OFFER
+  REJECTED
+}
+
+enum InterviewType {
+  PHONE
+  VIDEO
+  ONSITE
+  TECHNICAL
+  BEHAVIORAL
+}
+
+enum DocumentType {
+  RESUME
+  COVER_LETTER
+  OTHER
+}
+
+// ============================================================================
+// USER MODEL
+// ============================================================================
+
+model User {
+  id              String   @id @default(cuid())
+  email           String   @unique
+  name            String
+  password        String   // Will store hashed password
+  phoneNumber     String?  @map("phone_number")
+  dateRegistered  DateTime @default(now()) @map("date_registered")
+
+  // Relations
+  applications    ApplicationEntry[]
+  folders         ApplicationFolder[]
+
+  @@map("student_user")
+}
+
+// ============================================================================
+// JOB POSTING MODEL
+// ============================================================================
+
+model JobPosting {
+  jobUrl       String        @id @map("job_url")
+  companyName  String        @map("company_name")
+  jobTitle     String        @map("job_title")
+  location     String?
+  locationType LocationType? @map("location_type")
+  salaryMin    Int?          @map("salary_min")
+  salaryMax    Int?          @map("salary_max")
+
+  // Relations
+  applications ApplicationEntry[]
+
+  @@map("job_posting")
+}
+
+// ============================================================================
+// APPLICATION ENTRY (Main entity)
+// ============================================================================
+
+model ApplicationEntry {
+  id          Int      @id @default(autoincrement()) @map("application_id")
+
+  // Foreign keys
+  studentEmail String   @map("student_email")
+  jobUrl       String   @map("job_url")
+
+  // Data
+  appliedTime  DateTime @default(now()) @map("applied_time")
+  status       ApplicationStatus
+  notes        String?  @db.Text
+
+  // Relations
+  user         User              @relation(fields: [studentEmail], references: [email], onDelete: Cascade)
+  job          JobPosting        @relation(fields: [jobUrl], references: [jobUrl], onDelete: Cascade)
+  interviews   Interview[]
+  reminders    Reminder[]
+  documents    ApplicationDocument[]
+  folders      ApplicationFolderAssignment[]
+
+  @@unique([studentEmail, jobUrl])
+  @@map("application_entry")
+}
+
+// ============================================================================
+// FOLDER MODEL
+// ============================================================================
+
+model ApplicationFolder {
+  id           Int    @id @default(autoincrement()) @map("folder_id")
+  studentEmail String @map("student_email")
+  folderName   String @map("folder_name")
+  color        String?
+
+  // Relations
+  user         User                             @relation(fields: [studentEmail], references: [email], onDelete: Cascade)
+  applications ApplicationFolderAssignment[]
+
+  @@map("application_folder")
+}
+
+// ============================================================================
+// JUNCTION TABLE (Many-to-many: Applications <-> Folders)
+// ============================================================================
+
+model ApplicationFolderAssignment {
+  applicationId Int @map("application_id")
+  folderId      Int @map("folder_id")
+
+  // Relations
+  application   ApplicationEntry  @relation(fields: [applicationId], references: [id], onDelete: Cascade)
+  folder        ApplicationFolder @relation(fields: [folderId], references: [id], onDelete: Cascade)
+
+  @@id([applicationId, folderId])
+  @@map("application_folder_assignment")
+}
+
+// ============================================================================
+// INTERVIEW MODEL
+// ============================================================================
+
+model Interview {
+  id                 Int       @id @default(autoincrement()) @map("interview_id")
+  applicationId      Int       @map("application_id")
+  interviewType      InterviewType? @map("interview_type")
+  interviewDatetime  DateTime? @map("interview_datetime")
+  notes              String?   @db.Text
+  outcome            String?
+
+  // Relations
+  application        ApplicationEntry @relation(fields: [applicationId], references: [id], onDelete: Cascade)
+
+  @@map("interview")
+}
+
+// ============================================================================
+// REMINDER MODEL
+// ============================================================================
+
+model Reminder {
+  id                Int      @id @default(autoincrement()) @map("reminder_id")
+  applicationId     Int      @map("application_id")
+  reminderDatetime  DateTime @map("reminder_datetime")
+  reminderTitle     String   @map("reminder_title")
+  message           String?
+
+  // Relations
+  application       ApplicationEntry @relation(fields: [applicationId], references: [id], onDelete: Cascade)
+
+  @@map("reminder")
+}
+
+// ============================================================================
+// DOCUMENT MODEL
+// ============================================================================
+
+model ApplicationDocument {
+  id            Int          @id @default(autoincrement()) @map("document_id")
+  applicationId Int          @map("application_id")
+  documentType  DocumentType @map("document_type")
+  filePath      String       @map("file_path")
+  uploadDate    DateTime     @default(now()) @map("upload_date")
+
+  // Relations
+  application   ApplicationEntry @relation(fields: [applicationId], references: [id], onDelete: Cascade)
+
+  @@map("application_document")
+}
